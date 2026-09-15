@@ -70,4 +70,3 @@ Para integração local, pause o worker, execute `pnpm test:integration` e resta
 Este é o núcleo financeiro de teste até a seção 2. Convites e recuperação por e-mail, MFA completo, recorrências/parcelamento, arquivos, importações/OFX, faturas/PDF, os 21 relatórios e API externa ainda não estão concluídos. A matriz inclui os grupos futuros, mas não os habilita como funcionalidades.
 
 O plano fornecido prevê a conferência humana das fórmulas após a seção 2, antes de relatórios, faturas e importações. Não há pagamentos bancários reais, emissão fiscal, multi-moeda nem promessa de desempenho em produção.
-

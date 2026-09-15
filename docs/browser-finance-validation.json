@@ -1,0 +1,12 @@
+{
+  "login": true,
+  "dashboard": true,
+  "create": true,
+  "settlement": true,
+  "reversal": true,
+  "cancellation": true,
+  "accounts": true,
+  "statement": true,
+  "mobile": true,
+  "javascriptErrors": 0
+}

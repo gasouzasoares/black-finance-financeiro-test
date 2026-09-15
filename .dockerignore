@@ -1,0 +1,13 @@
+node_modules
+dist
+apps/web/dist
+.git
+.local
+.env
+.env*
+.vercel
+deploy/.env
+supabase/.temp
+supabase/.branches
+supabase/signing_keys.json
+*.log

@@ -1,0 +1,58 @@
+{
+  "accounts": [
+    {
+      "name": "Conta operacional",
+      "legal_entity": "BF Operações · DEMO",
+      "balance_minor": "35670000",
+      "ledger": "35670000",
+      "daily": "35670000"
+    },
+    {
+      "name": "Reserva financeira",
+      "legal_entity": "BF Operações · DEMO",
+      "balance_minor": "4076000",
+      "ledger": "4076000",
+      "daily": "4076000"
+    },
+    {
+      "name": "Conta de projetos",
+      "legal_entity": "BF Projetos · DEMO",
+      "balance_minor": "17170000",
+      "ledger": "17170000",
+      "daily": "17170000"
+    },
+    {
+      "name": "Caixa interno",
+      "legal_entity": "BF Projetos · DEMO",
+      "balance_minor": "-3496000",
+      "ledger": "-3496000",
+      "daily": "-3496000"
+    }
+  ],
+  "entries": [
+    {
+      "status": "open",
+      "direction": "expense",
+      "count": 40,
+      "amount_minor": "10080000"
+    },
+    {
+      "status": "open",
+      "direction": "income",
+      "count": 44,
+      "amount_minor": "31510000"
+    },
+    {
+      "status": "settled",
+      "direction": "expense",
+      "count": 60,
+      "amount_minor": "7920000"
+    },
+    {
+      "status": "settled",
+      "direction": "income",
+      "count": 56,
+      "amount_minor": "21840000"
+    }
+  ]
+}

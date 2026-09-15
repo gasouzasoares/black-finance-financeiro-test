@@ -1,0 +1,17 @@
+{
+ "$schema":"https://openapi.vercel.sh/vercel.json",
+ "framework":null,
+ "regions":["iad1"],
+ "buildCommand":"pnpm build",
+ "outputDirectory":"apps/web/dist",
+ "installCommand":"pnpm install --frozen-lockfile",
+ "functions":{"api/index.ts":{"maxDuration":60}},
+ "rewrites":[
+  {"source":"/api/:path*","destination":"/api/index"},
+  {"source":"/v1/:path*","destination":"/api/index"},
+  {"source":"/health","destination":"/api/index"},
+  {"source":"/live","destination":"/api/index"},
+  {"source":"/((?!assets/|brand/).*)","destination":"/index.html"}
+ ],
+ "headers":[{"source":"/(.*)","headers":[{"key":"X-Content-Type-Options","value":"nosniff"},{"key":"Referrer-Policy","value":"same-origin"},{"key":"X-Frame-Options","value":"DENY"}]}]
+}
