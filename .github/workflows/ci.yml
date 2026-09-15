@@ -1,0 +1,31 @@
+name: foundation
+on: workflow_dispatch
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint && pnpm typecheck && pnpm test && pnpm build
+      - run: pnpm local:prepare
+      - run: pnpm local:start
+      - run: pnpm exec supabase db reset --local
+      - run: pnpm exec supabase status -o json > .local/supabase-status.json
+      - run: pnpm local:bootstrap
+      - run: pnpm test:integration
+      - run: docker compose --env-file deploy/.env -f deploy/docker-compose.yml -f deploy/docker-compose.local.yml config --quiet
+      - run: docker compose --env-file deploy/.env -f deploy/docker-compose.yml -f deploy/docker-compose.local.yml up -d --build --wait --wait-timeout 180
+      - run: curl --fail http://localhost:8080/health
+      - run: pnpm smoke:worker
+      - if: always()
+        run: docker compose --env-file deploy/.env -f deploy/docker-compose.yml -f deploy/docker-compose.local.yml down
+      - if: always()
+        run: pnpm exec supabase stop

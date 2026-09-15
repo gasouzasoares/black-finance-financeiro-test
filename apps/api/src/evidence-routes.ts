@@ -1,0 +1,31 @@
+import {Contacts,contactContextSchema} from '../../../packages/domain/src/contacts.js';
+import {z} from 'zod';
+import type {FastifyInstance,FastifyRequest} from 'fastify';
+import {id} from '../../../packages/contracts/src/finance.js';
+import {sheetSchema,mappingSchema,documentSchema,documentReviewSchema,dimensionSchema,contextSchema,accountabilitySchema} from '../../../packages/contracts/src/evidence.js';
+import {Evidence} from '../../../packages/domain/src/evidence.js';
+import {inspectSheet} from '../../../packages/domain/src/xlsx.js';
+import type {Finance,Context} from '../../../packages/domain/src/finance.js';
+import {parse} from './finance-routes.js';
+export async function evidenceRoutes(app:FastifyInstance,f:Finance,context:(r:FastifyRequest)=>Promise<Context>){
+ const contacts=new Contacts(f);
+ app.get('/v1/parties/:id/context',async r=>contacts.get(await context(r),rid(r)));
+ app.patch('/v1/parties/:id/context',async r=>contacts.save(await context(r),rid(r),parse(contactContextSchema,r.body)));
+ app.get('/v1/entries/:id/contact-suggestions',async r=>contacts.suggestions(await context(r),rid(r)));
+ const service=new Evidence(f),rid=(r:FastifyRequest)=>parse(id,(r.params as {id:string}).id);
+ app.post('/v1/xlsx/inspect',async r=>{const ctx=await context(r);await f.transaction(ctx,async t=>f.permit(t,'imports:create'));return inspectSheet(parse(sheetSchema,r.body).base64);});
+ app.post('/v1/xlsx/import',async r=>{const ctx=await context(r);await f.transaction(ctx,async t=>f.permit(t,'imports:create'));return service.modules.previewXlsx(ctx,parse(mappingSchema,r.body));});
+ app.get('/v1/documents',async r=>service.documents(await context(r),parse(z.object({account_id:id.optional(),legal_entity_id:id.optional(),after:id.optional(),hash:z.string().regex(/^[a-f0-9]{64}$/).optional(),q:z.string().max(120).optional(),unlinked:z.enum(['true','false']).optional()}),r.query)));
+ app.post('/v1/documents',async r=>service.upload(await context(r),parse(documentSchema,r.body)));
+ app.get('/v1/documents/:id',async r=>f.transaction(await context(r),t=>service.document(t,rid(r))));
+ app.get('/v1/documents/:id/file',async r=>{const d=await f.transaction(await context(r),t=>service.document(t,rid(r),true));return {mime:d.mime,base64:d.original.toString('base64')};});
+ app.patch('/v1/documents/:id',async r=>service.reviewDocument(await context(r),rid(r),parse(documentReviewSchema,r.body)));
+ app.get('/v1/documents/:id/original',async(r,reply)=>{const d=await f.transaction(await context(r),t=>service.document(t,rid(r),true));return reply.header('Content-Type',d.mime).header('X-Content-Type-Options','nosniff').header('Content-Security-Policy',"default-src 'none'; sandbox").header('Content-Disposition',`inline; filename*=UTF-8''${encodeURIComponent(d.filename)}`).send(d.original);});
+ app.get('/v1/context/dimensions',async r=>service.dimensions(await context(r)));
+ app.post('/v1/context/dimensions',async r=>service.saveDimension(await context(r),parse(dimensionSchema,r.body)));
+ app.patch('/v1/context/dimensions/:id',async r=>service.saveDimension(await context(r),parse(dimensionSchema,r.body),rid(r)));
+ app.get('/v1/entries/:id/context',async r=>service.context(await context(r),rid(r)));
+ app.patch('/v1/entries/:id/context',async r=>service.saveContext(await context(r),rid(r),parse(contextSchema,r.body)));
+ app.get('/v1/entries/:id/suggestions',async r=>service.suggestions(await context(r),rid(r)));
+ app.get('/v1/reports/accountability',async r=>service.report(await context(r),parse(accountabilitySchema,r.query)));
+}

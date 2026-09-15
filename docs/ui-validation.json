@@ -1,0 +1,24 @@
+{
+  "screens": [
+    "Comece por aqui",
+    "Visão geral",
+    "Lançamentos",
+    "Agenda",
+    "Contas e extratos",
+    "Transferências",
+    "Empresas",
+    "Contatos",
+    "Categorias",
+    "Centros de custo",
+    "Marcadores",
+    "Acessos",
+    "Histórico",
+    "Organização"
+  ],
+  "desktop": true,
+  "mobileNoHorizontalOverflow": true,
+  "shadcnSelect": true,
+  "financialLifecycle": true,
+  "guide": true,
+  "javascriptErrors": 0
+}
