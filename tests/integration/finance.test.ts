@@ -44,6 +44,11 @@ test('financial core: exact ledger, atomicity, concurrency, scoped APIs and 1000
  assert.equal((await app.inject({url:`/v1/accounts/${account}/statement?${query}`,headers})).statusCode,403);
  assert.equal((await app.inject({url:'/v1/entries'})).statusCode,401);
  assert.equal((await app.inject({method:'POST',url:'/v1/entries',headers:{authorization:`Bearer ${actor}`},payload:{amount_minor:'-1'}})).statusCode,422);
+ const ownHeaders={authorization:`Bearer ${actor}`};
+ const matchingTransfers=(await app.inject({url:`/v1/transfers?${query}&account_id=${account}`,headers:ownHeaders})).json().items;assert.ok(matchingTransfers.some((r:{id:string})=>String(r.id)===String(transfer.id)));
+ assert.equal((await app.inject({url:`/v1/transfers?${query}&account_id=${accounts[3]!.id}`,headers:ownHeaders})).json().items.length,0);
+ assert.equal((await app.inject({url:`/v1/transfers?from=2100-01-01&to=2100-01-31&account_id=${account}`,headers:ownHeaders})).json().items.length,0);
+ assert.equal((await app.inject({url:`/v1/transfers?${query}`,headers})).json().items.length,0);
  const ownerPolicy=(await admin.query('SELECT version FROM app.access_policies WHERE user_id=$1',[actor])).rows[0];
  const lastOwner=await app.inject({method:'PATCH',url:`/v1/users/${actor}/policy`,headers:{authorization:`Bearer ${actor}`,'idempotency-key':randomUUID(),'if-match':String(ownerPolicy.version)},payload:{status:'active',policy:{is_owner:false,permissions:[],legal_entity_ids:[],account_ids:[],directions:[],groups:[]}}});
  assert.equal(lastOwner.statusCode,409);assert.equal(lastOwner.json().code,'LAST_OWNER');
@@ -65,6 +70,10 @@ test('financial core: exact ledger, atomicity, concurrency, scoped APIs and 1000
  const uxQuery={from:today(),to:today(),limit:1,q:uxTitle,group:'revenue' as const,party_id:String(party.id),category_id:String(category.id),cost_center_id:String(center.id),label_id:String(label.id)};
  const firstPage=await f.entries(ctx(),uxQuery);assert.equal(firstPage.items.length,1);assert.ok(firstPage.next_cursor);assert.equal(firstPage.items[0]!.party_name,uxTitle);
  const full=await f.entrySummary(ctx(),uxQuery);assert.equal(full.count,3);assert.equal(full.receivable_minor,'600');assert.equal(full.payable_minor,'0');
+ const overview=await f.overview(ctx(),uxQuery);assert.equal(overview.totals.find(r=>r.direction==='income'&&r.status==='open')!.amount_minor,'600');assert.equal(overview.calendar.reduce((n,r)=>n+Number(r.count),0),3);assert.equal(overview.current.reduce((n,r)=>n+BigInt(String(r.amount_minor)),0n),600n);assert.equal(overview.previous.length,0);assert.ok(overview.activity.every(r=>String(r.title)===uxTitle));
+ const byAmount=await f.entries(ctx(),{...uxQuery,sort:'amount_minor',order:'asc'});assert.equal(byAmount.items[0]!.amount_minor,'100');
+ const byAmountNext=await f.entries(ctx(),{...uxQuery,sort:'amount_minor',order:'asc',cursor:byAmount.next_cursor!});assert.equal(byAmountNext.items[0]!.amount_minor,'200');
+ await assert.rejects(()=>f.entries(ctx(),{...uxQuery,sort:'title',cursor:byAmount.next_cursor!}),(e:unknown)=>e instanceof AppError&&e.statusCode===400);
  const secondPage=await f.entries(ctx(),{...uxQuery,cursor:firstPage.next_cursor!});assert.notEqual(secondPage.items[0]!.id,firstPage.items[0]!.id);
  assert.deepEqual(await f.entrySummary(ctx(),{...uxQuery,cursor:firstPage.next_cursor!}),full);
  assert.equal((await f.entrySummary(ctx(),{...uxQuery,group:'fixed'})).count,0);
@@ -79,6 +88,8 @@ test('financial core: exact ledger, atomicity, concurrency, scoped APIs and 1000
  const noScope=await app.inject({url:`/v1/entries/summary?${query}`,headers});assert.equal(noScope.statusCode,200);assert.equal(noScope.json().count,0);assert.equal(noScope.json().received_minor,'0');
  assert.equal((await app.inject({url:`/v1/entries/summary?${query}&group=invalid`,headers:{authorization:`Bearer ${actor}`}})).statusCode,422);
  assert.equal((await app.inject({url:`/v1/entries/summary?${query}`})).statusCode,401);
+ const hiddenOverview=(await app.inject({url:`/v1/overview?${query}`,headers})).json();assert.deepEqual(hiddenOverview.current,[]);assert.deepEqual(hiddenOverview.activity,[]);assert.deepEqual(hiddenOverview.calendar,[]);
+ assert.equal((await app.inject({url:`/v1/entries?${query}&sort=invalid`,headers:{authorization:`Bearer ${actor}`}})).statusCode,422);
  // Deterministic pseudo-random sequence with independently recomputed invariants.
  let state=41021;const random=()=>{state=(state*1664525+1013904223)>>>0;return state;};let commands=0;
  for(let i=0;i<334;i++){

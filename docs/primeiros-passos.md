@@ -1,42 +1,38 @@
 # Comece por aqui
 
-## Teste com os cadastros de demonstração
+## Faça seu primeiro teste
 
-1. Entre no sistema. A tela inicial agora apresenta um roteiro de uso.
-2. Abra **Contas e extratos** e conheça uma conta marcada como DEMO.
-3. Em **Lançamentos → Novo lançamento**, registre uma receita ou despesa pequena. Preencha descrição, conta, valor e vencimento; selecione uma categoria.
-4. Salve. O lançamento fica **pendente**, sem alterar o saldo realizado.
-5. Abra seu detalhe e escolha **Liquidar** quando quiser simular que o pagamento ou recebimento aconteceu. Informe a data da realização e confirme.
-6. Confira o resultado em **Contas e extratos → Ver extrato**. Nenhuma dessas ações envia dinheiro ao banco.
+1. Entre no sistema. A **Página inicial** mostra o painel financeiro.
+2. No cartão à direita, escolha uma conta marcada como DEMO. O CNPJ fica no rodapé do menu lateral.
+3. Abra **Transações → Recebimentos → Nova transação**, logo abaixo do cabeçalho da tabela. Informe descrição, valor, vencimento e conta; selecione uma categoria.
+4. Salve. A transação começa **pendente**, sem alterar o saldo realizado.
+5. Ative **Pago?** na linha, informe a data da realização e confirme. Essa ação registra o recebimento; não envia dinheiro ao banco.
+6. Abra **Relatórios**, escolha a conta e confira o extrato do período.
 
-Para desfazer o teste, reverta a liquidação informando o motivo e depois cancele o lançamento. O histórico permanece registrado.
+Para desfazer o teste, desative **Pago?**, informe o motivo e confirme a reversão. Depois, no menu de três pontos da linha, escolha **Cancelar transação**. O histórico permanece registrado.
 
-## Organize seus próprios cadastros
+## Onde ficam as funções
 
-Siga **Empresas → Contas e extratos → Categorias → Lançamentos**. Informe cuidadosamente o saldo inicial e sua data de abertura para evitar duplicar valores já registrados. As demonstrações não representam suas empresas reais.
+- **Página inicial:** previsto/realizado, movimento de caixa, comparação, alterações recentes, conta e compromissos.
+- **Transações:** recebimentos, despesas fixas, variáveis, pessoas, impostos e transferências, em uma única sequência de abas.
+- **Contatos:** clientes e fornecedores.
+- **Relatórios:** extrato por conta e período.
+- **Menu do usuário**, no alto da lateral: empresas, contas bancárias, categorias, centros de custo, marcadores, acessos, histórico, organização, agenda e este guia.
 
-Contatos, centros de custo e marcadores são auxiliares. Você pode configurá-los depois de entender o fluxo principal. Administração reúne acessos, histórico e configurações da organização.
+As setas ao lado do mês mudam o período. **Filtrar** reúne situação, contato, categoria, centro de custo e marcador. Clique em Data, Descrição ou Valor para ordenar. O total abaixo da tabela abrange todas as páginas do filtro. O botão **+** abre o formulário completo; os três pontos da linha abrem detalhes e ações.
 
-## Rotina de uso
+No celular, abra o menu pelo botão no topo. A tabela pode ser deslizada horizontalmente para acessar suas colunas.
 
-Na **Visão geral**, use **Ver receitas**, **Ver despesas**, **Vencem hoje** ou **Ver vencidos**. Os atalhos preservam empresa, conta e período; amplie o período para procurar pendências mais antigas.
+## Cadastre sua organização
 
-Em **Lançamentos**, escolha **Receitas** ou **Despesas**. Dentro de despesas, os botões de grupo ajudam a localizar custos fixos, variáveis, pessoas ou impostos. Use as setas para trocar de mês. **Mais filtros** reúne contato, categoria, centro de custo e marcador.
+Abra o menu do usuário e siga **Empresas → Contas bancárias → Categorias → Transações**. Informe o saldo inicial e sua data com cuidado para evitar duplicidade. As empresas e valores DEMO são fictícios.
 
-Os totais acima da lista abrangem todas as páginas. São agrupados por vencimento; para conferir quando o dinheiro realmente entrou ou saiu, consulte o extrato. No celular, toque no título de um cartão para abrir os detalhes.
+A aplicação tem uma organização com múltiplos CNPJs e contas internas. Contatos, centros de custo e marcadores são auxiliares e podem ser configurados depois do primeiro teste.
 
-No guia inicial, **O que já posso fazer?** informa quais recursos estão disponíveis e quais continuam planejados. A comparação completa com os prints está em `auditoria-ux-referencias.md`.
+## Como interpretar o painel
 
-- **Agenda:** compromissos pendentes por vencimento.
-- **Lançamentos:** receitas, despesas, pagamentos, recebimentos e suas correções.
-- **Visão geral:** totais e movimentos do período selecionado.
-- **Extrato:** saldo anterior, movimento e saldo após cada lançamento.
-- **Transferências:** movimentação entre suas próprias contas.
+Previsto/realizado agrupa transações pelo vencimento. O gráfico de caixa e o extrato usam a data de realização. A previsão da conta soma ao saldo atual as entradas pendentes e subtrai as saídas pendentes do período. Amplie o período para procurar pendências antigas.
 
-O botão **Como usar**, no topo, reabre o guia a qualquer momento.
+**Faturas, importações, OFX, DRE, anexos, recorrências, parcelamento e pagamentos parciais ainda não estão implantados.** As posições correspondentes na interface informam essa limitação. Relatórios contém o extrato disponível, sem simular os demais relatórios.
 
-## Padronização da interface
-
-Select, Checkbox, Alert, Accordion e Tooltip oficiais do shadcn se somam aos componentes já usados de botão, formulário, tabela, cartão, diálogo e navegação móvel. Fontes, cores e logo da Black Finance foram preservados. Datas continuam usando Input do shadcn com o seletor de data nativo do navegador.
-
-Validação local e na URL pública https://black-finance-financeiro-test.vercel.app: 14 telas verificadas em desktop e celular, sem transbordamento horizontal do documento; fluxo de criar, liquidar, reverter e cancelar passou com o novo Select. Guia e glossário verificados, zero erros JavaScript não tratados. Resultado detalhado em `ui-validation.json`.
+A comparação com a referência e as regras estão em `fidelidade-procfy.md`. A verificação desta interface está em `reference-layout-validation.json`.
