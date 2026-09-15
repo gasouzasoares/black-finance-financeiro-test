@@ -33,6 +33,8 @@ A aplicação tem uma organização com múltiplos CNPJs e contas internas. Cont
 
 Previsto/realizado agrupa transações pelo vencimento. O gráfico de caixa e o extrato usam a data de realização. A previsão da conta soma ao saldo atual as entradas pendentes e subtrai as saídas pendentes do período. Amplie o período para procurar pendências antigas.
 
-**Faturas, importações, OFX, DRE, anexos, recorrências, parcelamento e pagamentos parciais ainda não estão implantados.** As posições correspondentes na interface informam essa limitação. Relatórios contém o extrato disponível, sem simular os demais relatórios.
+**Novos módulos:** Faturas cria rascunhos e recebíveis; Importações revisa CSV; Conciliações (OFX) confere extratos; Relatórios → Resultados (DRE) apresenta competência e caixa; Menu do usuário → Recorrências gera transações repetidas. Comece por uma fatura pequena ou um arquivo de teste e confira a prévia antes de confirmar.
+
+Recorrências são geradas pelo botão “Gerar transações”, até 24 ocorrências por vez. Parcelamento, pagamentos parciais e anexos continuam indisponíveis. Consulte `modulos-internos.md` para formatos, limites e regras.
 
 A comparação com a referência e as regras estão em `fidelidade-procfy.md`. A verificação desta interface está em `reference-layout-validation.json`.

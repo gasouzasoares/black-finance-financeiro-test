@@ -3,10 +3,25 @@ import {z} from 'zod';
 import {AppError} from '../../../packages/contracts/src/index.js';
 import {accountSchema,legalEntitySchema,entrySchema,listSchema,catalogSchemas,id,name,policySchema,settleSchema,reverseSchema,transferSchema,invitationSchema, type Catalog} from '../../../packages/contracts/src/finance.js';
 import {Finance,type Context} from '../../../packages/domain/src/finance.js';
+import {InternalModules} from '../../../packages/domain/src/modules.js';
+import {invoiceSchema,recurrenceSchema,reportSchema,importSchema} from '../../../packages/contracts/src/modules.js';
+import {day} from '../../../packages/contracts/src/finance.js';
 export function parse<T>(schema:z.ZodType<T>,input:unknown):T{const r=schema.safeParse(input);if(!r.success){const fields:Record<string,string[]>={};for(const e of r.error.issues)(fields[e.path.join('.')||'form']??=[]).push(e.message);throw new AppError(422,'VALIDATION_ERROR','Confira os campos informados.',fields);}return r.data;}
 export async function financeRoutes(app:FastifyInstance,f:Finance,authenticate:(r:FastifyRequest)=>Promise<string>){
  const context=async(req:FastifyRequest):Promise<Context>=>{const actor=await authenticate(req);const match=req.headers['if-match'];let version;if(match!==undefined){const value=String(match).replace(/^"|"$/g,'');if(!/^[1-9]\d{0,8}$/.test(value))throw new AppError(400,'INVALID_VERSION','Versão inválida.');version=Number(value);}const key=req.headers['idempotency-key'];return{actor,requestId:req.id,key:typeof key==='string'?key:undefined,version};};
  const rid=(req:FastifyRequest)=>parse(id,(req.params as {id:string}).id);
+ const modules=new InternalModules(f);
+ for(const [path,table] of [['invoices','invoices'],['recurrences','recurrences'],['imports','import_batches']] as const)app.get(`/v1/${path}`,async r=>modules.list(await context(r),table,parse(listSchema,r.query)));
+ app.post('/v1/invoices',async r=>modules.createInvoice(await context(r),parse(invoiceSchema,r.body)));
+ for(const action of ['issue','cancel'] as const)app.post(`/v1/invoices/:id/${action}`,async r=>modules.invoiceAction(await context(r),rid(r),action));
+ app.post('/v1/recurrences',async r=>modules.createRecurrence(await context(r),parse(recurrenceSchema,r.body)));
+ for(const action of ['generate','pause','resume','end'] as const)app.post(`/v1/recurrences/:id/${action}`,async r=>modules.recurrenceAction(await context(r),rid(r),action,parse(z.object({through:day}).strict(),r.body).through));
+ app.post('/v1/imports',async r=>modules.preview(await context(r),parse(importSchema,r.body)));
+ app.get('/v1/imports/:id',async r=>modules.batch(await context(r),rid(r)));
+ app.get('/v1/imports/:id/candidates',async r=>modules.candidates(await context(r),rid(r),parse(z.object({row_id:id}),r.query).row_id));
+ app.post('/v1/imports/:id/confirm',async r=>modules.importRows(await context(r),rid(r),parse(z.object({ids:z.array(id).min(1).max(24)}).strict(),r.body).ids));
+ app.post('/v1/imports/:id/reconcile',async r=>{const d=parse(z.object({row_id:id,entry_id:id.nullable()}).strict(),r.body);return modules.reconcile(await context(r),rid(r),d.row_id,d.entry_id);});
+ app.get('/v1/reports/dre',async r=>modules.dre(await context(r),parse(reportSchema,r.query)));
  app.get('/v1/organization-profile',async r=>f.profile(await context(r)));
  app.patch('/v1/organization-profile',async r=>f.organization(await context(r),parse(z.object({name}).strict(),r.body).name));
  app.get('/v1/legal-entities',async r=>({items:await f.listEntities(await context(r))}));

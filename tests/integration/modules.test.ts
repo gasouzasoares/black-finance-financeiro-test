@@ -1,0 +1,47 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {randomUUID} from 'node:crypto';
+import pg from 'pg';
+import {Finance,today,type Context} from '../../packages/domain/src/finance.js';
+import {InternalModules} from '../../packages/domain/src/modules.js';
+import {createPool} from '../../packages/domain/src/db.js';
+import {invoiceSchema,recurrenceSchema} from '../../packages/contracts/src/modules.js';
+import {entrySchema,listSchema} from '../../packages/contracts/src/finance.js';
+import {AppError} from '../../packages/contracts/src/index.js';
+
+test('internal modules preserve idempotency, account scope, exact results and ledger',async t=>{
+ const env=JSON.parse(await readFile('.local/test-env.json','utf8'));const url=new URL(env.adminDatabaseUrl);if(!['127.0.0.1','localhost'].includes(url.hostname)||url.port!=='54322')throw new Error('Exige banco local.');
+ const admin=new pg.Pool({connectionString:env.adminDatabaseUrl,max:2}),pool=createPool(env.databaseUrl);t.after(async()=>{await pool.end();await admin.end();});
+ const f=new Finance(pool),m=new InternalModules(f);const actor=(await admin.query('SELECT id FROM app.users WHERE email=$1',[env.email])).rows[0].id;
+ const ctx=(version?:number,key=randomUUID()):Context=>({actor,requestId:randomUUID(),version,key});
+ let cnpj=String(Date.now()).slice(-12);for(let round=0;round<2;round++){let sum=0;for(let i=cnpj.length-1,w=2;i>=0;i--,w=w===9?2:w+1)sum+=(Number(cnpj[i]))*w;cnpj+=String(sum%11<2?0:11-sum%11);}
+ const entity=await f.entity(ctx(),{name:'Módulos integração',cnpj,status:'active'});
+ const account=await f.createAccount(ctx(),{legal_entity_id:entity.id,name:'Módulos teste',kind:'bank',opening_on:'2020-01-01',opening_minor:'100000',is_default:false});
+ const contact=await f.saveCatalog(ctx(),'parties',{name:'Cliente teste módulos',document:'',email:'',phone:'',status:'active'});
+ const cat=await f.saveCatalog(ctx(),'categories',{name:'Receita módulos',direction:'income',reporting_group:'revenue',status:'active'});
+ const query=listSchema.parse({from:today().slice(0,4)+'-01-01',to:today().slice(0,4)+'-12-31',account_id:account.id});
+ const invoice=await m.createInvoice(ctx(),invoiceSchema.parse({account_id:account.id,party_id:contact.id,category_id:cat.id,title:'Fatura teste',issued_on:today(),due_on:today(),items:[{description:'Serviço',quantity:2,unit_minor:'1000'}],discount_minor:'100'}));
+ assert.equal(invoice.total_minor,'1900');assert.equal((await m.dre(ctx(),{...query,basis:'competence'})).total_minor,'0');
+ const issueCtx=ctx(1);const issued=await m.invoiceAction(issueCtx,String(invoice.id),'issue');const replay=await m.invoiceAction(issueCtx,String(invoice.id),'issue');assert.equal(replay.entry_id,issued.entry_id);
+ await assert.rejects(()=>m.invoiceAction(ctx(1),String(invoice.id),'issue'));
+ assert.equal((await m.dre(ctx(),{...query,basis:'competence'})).total_minor,'1900');assert.equal((await m.dre(ctx(),{...query,basis:'cash'})).total_minor,'0');
+ await f.mutateEntry(ctx(1),String(issued.entry_id),'settle',{settled_on:today()});assert.equal((await m.dre(ctx(),{...query,basis:'cash'})).total_minor,'1900');
+ const ofx=`<OFX><CURDEF>BRL\n<BANKACCTFROM><BANKID>001\n<ACCTID>fixture\n</BANKACCTFROM><STMTTRN><DTPOSTED>${today().replaceAll('-','')}\n<TRNAMT>19.00\n<FITID>invoice-${invoice.id}\n<NAME>Serviço\n</STMTTRN></OFX>`;
+ const preview=await m.preview(ctx(),{account_id:String(account.id),kind:'ofx',filename:'fixture.ofx',content:ofx});const batch=await m.batch(ctx(),String(preview.id));const row=batch.rows[0];
+ const balanceBefore=(await f.listAccounts(ctx())).find(a=>a.id===account.id)!.balance_minor;
+ await m.reconcile(ctx(1),String(batch.id),row.id,String(issued.entry_id));assert.equal((await f.listAccounts(ctx())).find(a=>a.id===account.id)!.balance_minor,balanceBefore);
+ await assert.rejects(()=>m.reconcile(ctx(2),String(batch.id),row.id,String(issued.entry_id)));
+ await f.mutateEntry(ctx(2),String(issued.entry_id),'reverse',{effective_on:today(),reason:'Teste reversão'});assert.equal((await m.dre(ctx(),{...query,basis:'cash'})).total_minor,'0');
+ const csv=`data;descricao;valor;id\n${today()};Importada;10,05;linha-a\n${today()};Duplicada;10,05;linha-a\n2026-02-31;Inválida;2,00;linha-b`;
+ const imported=await m.preview(ctx(),{account_id:String(account.id),kind:'csv',filename:'fixture.csv',content:csv});const csvBatch=await m.batch(ctx(),String(imported.id));assert.equal(csvBatch.rows[1].status,'duplicate');assert.equal(csvBatch.rows[2].status,'invalid');
+ const importCtx=ctx();assert.equal((await m.importRows(importCtx,String(imported.id),[csvBatch.rows[0].id])).imported,1);assert.equal((await m.importRows(importCtx,String(imported.id),[csvBatch.rows[0].id])).imported,1);
+ const again=await m.preview(ctx(),{account_id:String(account.id),kind:'csv',filename:'renomeado.csv',content:csv});assert.equal(again.id,imported.id);
+ const draft=entrySchema.parse({account_id:account.id,title:'Mensal',direction:'income',amount_minor:'123',due_on:'2026-01-31',competence_on:'2026-01-31',allocations:[{amount_minor:'123',category_id:cat.id}]});
+ const recurring=await m.createRecurrence(ctx(),recurrenceSchema.parse({entry:draft,frequency:'monthly',start_on:'2026-01-31',end_on:'2026-03-31'}));
+ const genCtx=ctx(1);const generated=await m.recurrenceAction(genCtx,String(recurring.id),'generate','2026-03-31');assert.equal(generated.generated,3);assert.equal((await m.recurrenceAction(genCtx,String(recurring.id),'generate','2026-03-31')).generated,3);
+ const dates=(await admin.query('SELECT due_on::text FROM app.recurrence_occurrences WHERE recurrence_id=$1 ORDER BY due_on',[recurring.id])).rows.map(r=>r.due_on);assert.deepEqual(dates,['2026-01-31','2026-02-28','2026-03-31']);
+ const restricted=randomUUID();await admin.query('INSERT INTO auth.users(id,email) VALUES($1,$2)',[restricted,`${restricted}@test.local`]);await admin.query("INSERT INTO app.users(id,email,display_name) VALUES($1,$2,'Restrito módulos')",[restricted,`${restricted}@test.local`]);await admin.query('INSERT INTO app.access_policies(user_id,permissions) VALUES($1,$2)',[restricted,['invoices:view','invoices:update','imports:view','reports:view','templates:view']]);
+ const rc={...ctx(),actor:restricted};assert.equal((await m.list(rc,'invoices',query)).items.length,0);assert.equal((await m.dre(rc,{...query,basis:'competence'})).total_minor,'0');await assert.rejects(()=>m.batch(rc,String(batch.id)),(e:unknown)=>e instanceof AppError&&e.statusCode===404);
+ assert.equal((await pool.query('SELECT count(*)::int AS n FROM app.cash_postings WHERE account_id=$1',[account.id])).rows[0].n,3);
+});

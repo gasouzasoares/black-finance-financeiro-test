@@ -1,3 +1,7 @@
+# Registro da revisão visual de 14/09/2026
+
+Atualização de 15/09/2026: faturas, CSV, OFX, DRE e recorrências foram implementados conforme `modulos-internos.md`. As indisponibilidades descritas abaixo registram o estado anterior desta auditoria visual.
+
 # Estrutura do Procfy com identidade Black Finance
 
 Esta revisão substitui as decisões de navegação anteriores. Referências: os 11 prints enviados e as capturas da auditoria de 14/09/2026, especialmente NAVEGACAO-MENU, DASHBOARD, TRANSACOES-RAPIDO e TRANSACOES-FILTROS. Não são uma nova confirmação de sessão autenticada. Não foram usados código ou recursos gráficos do Procfy.

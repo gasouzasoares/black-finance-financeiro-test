@@ -1,3 +1,4 @@
+import './modules.css';
 import {TooltipProvider} from '@/components/ui/tooltip';
 import {Feedback} from '@/components/Feedback';
 import React,{useEffect,useState,useCallback} from 'react';import {createRoot} from 'react-dom/client';import type {SupabaseClient} from '@supabase/supabase-js';import {meSchema,type Me} from '../../../packages/contracts/src/index';const Workspace=React.lazy(()=>import('./Workspace').then(m=>({default:m.Workspace}))); import {type API,ApiError} from './lib/api';import {AppButton as Button} from '@/components/AppButton';import {Input} from '@/components/ui/input';import {Label} from '@/components/ui/label';import {ArrowRight,ShieldCheck} from 'lucide-react';import './style.css';import './reference.css';

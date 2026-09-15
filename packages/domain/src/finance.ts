@@ -4,7 +4,7 @@ import { AppError } from '../../contracts/src/index.js';
 import { policySchema, type Policy, type EntryInput, type ListQuery, type Catalog } from '../../contracts/src/finance.js';
 type Row=Record<string,unknown>;
 export type Context={actor:string;requestId:string;key?:string;version?:number;policyAdministration?:boolean};
-type Tx={db:pg.PoolClient;ctx:Context;policy:Policy};
+export type Tx={db:pg.PoolClient;ctx:Context;policy:Policy};
 const fail=(status:number,code:string,message:string):never=>{throw new AppError(status,code,message);};
 const canonical=(v:unknown):string=>JSON.stringify(v,(_k,val)=>val && typeof val==='object'&&!Array.isArray(val)?Object.fromEntries(Object.entries(val).sort(([a],[b])=>a.localeCompare(b))):val);
 export const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
@@ -36,11 +36,11 @@ export class Finance {
  }
  version(t:Tx,row:Row){if(t.ctx.version===undefined)fail(428,'VERSION_REQUIRED','Atualize os dados antes de continuar.');if(row.version!==t.ctx.version)fail(412,'STALE_VERSION','Este registro mudou. Atualize a tela.');}
  async audit(t:Tx,type:string,rid:string,action:string,before:unknown,after:unknown){await t.db.query('INSERT INTO app.audit_events(actor_id,resource_type,resource_id,action,before_data,after_data,request_id) VALUES($1,$2,$3,$4,$5,$6,$7)',[t.ctx.actor,type,rid,action,before,after,t.ctx.requestId]);}
- async command(ctx:Context,kind:string,input:unknown,run:(t:Tx)=>Promise<Row>){return this.transaction({...ctx,policyAdministration:kind.startsWith('policy:')},async t=>{
+ async command(ctx:Context,kind:string,input:unknown,run:(t:Tx)=>Promise<Row>,authorize?:(t:Tx)=>Promise<void>){return this.transaction({...ctx,policyAdministration:kind.startsWith('policy:')},async t=>{
   // Reauthorize even when replaying a previously successful response.
   const parts=kind.split(':');const root=parts[0]!;const data=input as Row;
   const permission=root==='organization'||root==='entity'?'organization:manage':root==='transfer'?'entries:transfer':root==='account'?`accounts:${parts[1]==='create'?'create':'update'}`:root==='entry'?`entries:${parts[1]==='create'?'create':parts[2]??'update'}`:root==='policy'||root==='invitation'?'users:manage':`${root}:${parts[1]==='create'?'create':'update'}`;
-  this.permit(t,permission);
+  this.permit(t,permission);if(authorize)await authorize(t);
   if(root==='policy'&&!t.policy.is_owner)fail(403,'OWNER_REQUIRED','Somente proprietários podem alterar acessos.');
   if(root==='entry'&&parts[1]!=='create'){const e=(await t.db.query('SELECT * FROM app.entries WHERE id=$1',[parts[1]])).rows[0];if(!e)fail(404,'NOT_FOUND','Lançamento não encontrado.');await this.checkEntry(t,e);}
   if(root==='account'&&parts[1]==='update'){const a=(await t.db.query('SELECT * FROM app.accounts WHERE id=$1',[parts[2]])).rows[0];if(!a||!this.allowed(t,a))fail(404,'NOT_FOUND','Conta não encontrada.');}
@@ -79,8 +79,10 @@ export class Finance {
  async saveCatalog(ctx:Context,type:Catalog,data:Row,rid?:string){return this.command(ctx,`${type}:${rid??'create'}`,data,async t=>{this.permit(t,`${type}:${rid?'update':'create'}`);const table=type.replace('-','_');const keys=Object.keys(data);let before=null;if(rid){before=(await t.db.query(`SELECT * FROM app.${table} WHERE id=$1 FOR UPDATE`,[rid])).rows[0];if(!before)fail(404,'NOT_FOUND','Cadastro não encontrado.');this.version(t,before);}
   const r=rid?await t.db.query(`UPDATE app.${table} SET ${keys.map((k,i)=>`${k}=$${i+2}`).join(',')},version=version+1 WHERE id=$1 RETURNING *`,[rid,...Object.values(data)]):await t.db.query(`INSERT INTO app.${table}(${keys.join(',')}) VALUES(${keys.map((_,i)=>`$${i+1}`).join(',')}) RETURNING *`,Object.values(data));await this.audit(t,type,r.rows[0].id,rid?'update':'create',before,r.rows[0]);return r.rows[0];});}
  async allocationData(t:Tx,d:EntryInput){const result=[];for(const a of d.allocations){let group='unclassified';if(a.category_id){const cat=(await t.db.query("SELECT * FROM app.categories WHERE id=$1 AND status='active' FOR SHARE",[a.category_id])).rows[0];if(!cat||cat.direction!==d.direction)fail(422,'CATEGORY_DIRECTION','A categoria deve corresponder ao tipo do lançamento.');group=cat.reporting_group;}if(a.cost_center_id&&!(await t.db.query("SELECT id FROM app.cost_centers WHERE id=$1 AND status='active'",[a.cost_center_id])).rowCount)fail(422,'COST_CENTER','Centro de custo indisponível.');result.push({...a,reporting_group:group});}if(!this.allowedEntry(t,d.direction,result.map(a=>a.reporting_group)))fail(403,'FORBIDDEN','A classificação está fora do seu acesso.');return result;}
- async entry(ctx:Context,d:EntryInput,rid?:string){return this.command(ctx,`entry:${rid??'create'}`,d,async t=>{this.permit(t,`entries:${rid?'update':'create'}`);await this.accounts(t,[d.account_id]);let before=null;
+ async entry(ctx:Context,d:EntryInput,rid?:string){return this.command(ctx,`entry:${rid??'create'}`,d,t=>this.writeEntry(t,d,rid));}
+ async writeEntry(t:Tx,d:EntryInput,rid?:string){this.permit(t,`entries:${rid?'update':'create'}`);await this.accounts(t,[d.account_id]);let before=null;
   if(rid){before=(await t.db.query('SELECT * FROM app.entries WHERE id=$1 FOR UPDATE',[rid])).rows[0];if(!before||before.account_id!==d.account_id)fail(404,'NOT_FOUND','Lançamento não encontrado nesta conta.');await this.checkEntry(t,before);this.version(t,before);if(before.status!=='open')fail(409,'ENTRY_NOT_OPEN','Somente lançamentos pendentes podem ser editados.');}
+  if(rid&&(await t.db.query('SELECT 1 FROM app.invoices WHERE entry_id=$1',[rid])).rowCount)fail(409,'INVOICE_ENTRY','Transação vinculada a fatura emitida. Para corrigir valores, cancele a transação e emita uma nova fatura.');
   if(d.party_id&&!(await t.db.query("SELECT id FROM app.parties WHERE id=$1 AND status='active'",[d.party_id])).rowCount)fail(422,'PARTY','Contato indisponível.');
   const allocations=await this.allocationData(t,d);
   const values=[d.account_id,d.party_id,d.direction,d.title,d.notes,d.amount_minor,d.due_on,d.competence_on];
@@ -88,7 +90,7 @@ export class Finance {
   if(rid){if((await t.db.query('SELECT 1 FROM app.settlements WHERE entry_id=$1 LIMIT 1',[rid])).rowCount)fail(409,'HAS_HISTORY','Lançamento com histórico de liquidação deve ser cancelado e recriado para alterar valores.');await t.db.query('DELETE FROM app.entry_allocations WHERE entry_id=$1',[rid]);await t.db.query('DELETE FROM app.entry_labels WHERE entry_id=$1',[rid]);}
   for(const a of allocations)await t.db.query('INSERT INTO app.entry_allocations(entry_id,amount_minor,due_on,competence_on,category_id,cost_center_id,reporting_group) VALUES($1,$2,$3,$4,$5,$6,$7)',[e.id,a.amount_minor,d.due_on,d.competence_on,a.category_id,a.cost_center_id,a.reporting_group]);
   for(const label of new Set(d.label_ids)){if(!(await t.db.query("SELECT id FROM app.labels WHERE id=$1 AND status='active'",[label])).rowCount)fail(422,'LABEL','Marcador indisponível.');await t.db.query('INSERT INTO app.entry_labels VALUES($1,$2)',[e.id,label]);}
-  await this.audit(t,'entry',e.id,rid?'update':'create',before,{...e,allocations});return e;});}
+  await this.audit(t,'entry',e.id,rid?'update':'create',before,{...e,allocations});return e;}
  async checkEntry(t:Tx,e:Row){const a=(await t.db.query('SELECT * FROM app.accounts WHERE id=$1',[e.account_id])).rows[0];const lines=(await t.db.query('SELECT * FROM app.entry_allocations WHERE entry_id=$1 ORDER BY id',[e.id])).rows;if(!this.allowed(t,a)||!this.allowedEntry(t,String(e.direction),lines.map(l=>l.reporting_group)))fail(404,'NOT_FOUND','Lançamento não encontrado.');return lines;}
  async mutateEntry(ctx:Context,rid:string,action:'settle'|'reverse'|'cancel',data:Row){return this.command(ctx,`entry:${rid}:${action}`,data,async t=>{this.permit(t,`entries:${action}`);
   const ref=(await t.db.query('SELECT account_id FROM app.entries WHERE id=$1',[rid])).rows[0];if(!ref)fail(404,'NOT_FOUND','Lançamento não encontrado.');const [a]=await this.accounts(t,[ref.account_id],false);
