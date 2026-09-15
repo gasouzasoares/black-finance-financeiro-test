@@ -8,7 +8,7 @@
 4. Abra uma transação pelo título ou por **Editar detalhes**. Em **Contexto e evidências**, escolha os cadastros, pessoas e comprovantes; confira movimentos e eventos sugeridos. Registre a justificativa e confirme ou deixe pendente.
 5. **Documentação completa** é uma declaração humana após conferência. Exige documentos confirmados e contexto confirmado. Alterar a versão financeira ou revisar um documento exige nova conferência.
 6. A conciliação financeira permanece em **Conciliações**: vincula o movimento à liquidação integral da mesma conta, data, direção e valor. Vincular evidências é uma ação diferente e não altera caixa.
-7. Abra **Prestação de contas** pelo menu do usuário ou por Relatórios. Filtre por conta, CNPJ, período, categoria, dimensão, documentação, revisão e conciliação. Clique no programa do gráfico ou em **Ver evidências**. A exportação refere-se à página visível; nomes e e-mails são opcionais e desmarcados inicialmente.
+7. Abra **Prestação de contas** pelo menu do usuário ou por Relatórios. Filtre por conta, CNPJ, período, categoria, dimensão, documentação, revisão e conciliação. Escolha programa, instituição, atividade, área, finalidade ou fonte de recurso para o gráfico. Clique no grupo ou em **Ver evidências**. A exportação refere-se à página visível; nomes e e-mails são opcionais e desmarcados inicialmente.
 
 ## Banco e integridade
 
@@ -28,13 +28,13 @@ Migrações aditivas `20260915000300_evidence.sql` e `20260915000400_evidence_re
 
 Fornecedores continuam em `entries.party_id`. Instituições relacionadas são dimensões independentes. Uma atividade pode ser associada a várias instituições e transações por seus vínculos de contexto. E-mails coincidentes não possuem restrição de unicidade nem provocam fusão de contatos.
 
-Valores financeiros usam centavos inteiros; cálculos e somas usam bigint/NUMERIC no banco e BigInt no domínio. Evidências não escrevem no razão financeiro. Os relatórios filtram relações com EXISTS e somam cada transação uma vez. No gráfico, vários programas formam uma combinação única; isso não substitui o rateio financeiro existente.
+Valores financeiros usam centavos inteiros; cálculos e somas usam bigint/NUMERIC no banco e BigInt no domínio. Evidências não escrevem no razão financeiro. Os relatórios filtram relações com EXISTS e somam cada transação uma vez. No gráfico, vários vínculos da dimensão selecionada formam uma combinação única; isso não substitui o rateio financeiro existente.
 
 Comandos de revisão usam versão e chave de idempotência. O histórico registra ator, data, ação, motivo e mudanças. Reautorizações acontecem antes de reapresentar respostas idempotentes. Acesso a documentos verifica conta, CNPJ e as classificações das transações vinculadas. Documentos compartilhados com um lançamento fora do escopo não são expostos a esse usuário.
 
 ## APIs
 
-Todas as rotas exigem autenticação. Mutação recebe JSON; comandos de domínio exigem `Idempotency-Key`; revisão recebe `If-Match`.
+Todas as rotas exigem autenticação. Mutação recebe JSON; comandos de domínio exigem `Idempotency-Key`; revisão recebe `X-Entity-Version` (ou `If-Match` para clientes diretos).
 
 | Método / caminho | Finalidade |
 |---|---|
@@ -51,7 +51,7 @@ Todas as rotas exigem autenticação. Mutação recebe JSON; comandos de domíni
 | GET/PATCH `/v1/entries/:id/context` | Consultar e revisar classificação e evidências |
 | GET `/v1/entries/:id/suggestions` | Candidatos por valor/data e menções aos cadastros |
 | GET `/v1/entries/:id/contact-suggestions` | Nomes/e-mails das evidências salvas, com possíveis contatos existentes |
-| GET `/v1/reports/accountability` | Totais exatos, agrupamento por programa e transações paginadas |
+| GET `/v1/reports/accountability` | Totais exatos, agrupamento por dimensão e transações paginadas |
 | GET `/v1/integrations/google` | Configuração disponível e estado da conexão do usuário |
 | POST `/v1/integrations/google/connect` | Iniciar consentimento |
 | GET `/v1/integrations/google/callback` | Validar consentimento e trocar código por credenciais no servidor |
@@ -111,3 +111,7 @@ Referências de implementação: [OAuth Web Server](https://developers.google.co
 Testes unitários cobrem Excel, valores, datas, fórmulas, extração de campos e integridade da cifra. Testes de integração verificam original privado, duplicidade/idempotência, revisão com versão, escopo de conta/usuário, muitos-para-muitos sem duplicar somas, conciliação sem postar novamente, completude declarada e trilha de revisão. Fluxo Google é exercitado com provedor simulado: state de uso único, agendas selecionadas, eventos ausentes, falha de acesso e desconexão.
 
 As verificações visuais e os arquivos de evidência ficam no projeto local. Capturas de tela e documentos financeiros não são publicados no GitHub.
+
+As mutações pelo navegador enviam `X-Entity-Version` para controle de concorrência, pois o proxy do Vercel interpreta `If-Match` antes da aplicação. A API direta mantém compatibilidade com `If-Match`; cabeçalhos divergentes são rejeitados. A versão continua sendo validada na transação do banco.
+
+Em 15/09/2026, o fluxo completo foi aprovado no endereço público do Vercel: Excel sem alteração de saldo, PDF com texto, OCR de imagem em português, revisão humana, vínculo à transação, relatório e layout em celular. O lançamento fictício foi cancelado ao final. Compilação, lint e checagem de tipos aprovados; 14 testes unitários e 6 testes de integração aprovados durante a entrega. Após o ajuste de concorrência na nuvem, foram repetidos os testes financeiros, de evidências e de Google simulado.

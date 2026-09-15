@@ -1,0 +1,16 @@
+{
+  "baseURL": "https://black-finance-financeiro-test.vercel.app",
+  "xlsxReviewWithoutPosting": true,
+  "pdfTextExtraction": true,
+  "imageOcrPortuguese": true,
+  "documentHumanReview": true,
+  "contextLink": true,
+  "reportDrilldown": true,
+  "googleUnavailableState": true,
+  "mobile": true,
+  "javascriptErrors": 0,
+  "syntheticEntryCancelled": true,
+  "verifiedAt": "2026-09-15",
+  "deploymentId": "dpl_8BFc6bi2s4nViKc3Y2XpaayCvZyJ",
+  "googleLiveConnectionValidated": false
+}
