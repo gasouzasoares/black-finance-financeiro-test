@@ -54,6 +54,31 @@ test('financial core: exact ledger, atomicity, concurrency, scoped APIs and 1000
  await assert.rejects(()=>f.entry(scopedCtx,ownInput),(e:unknown)=>e instanceof AppError&&e.statusCode===404);
  assert.equal((await app.inject({url:`/v1/entries?${query}`,headers})).json().items.length,0);
  await admin.query("UPDATE app.users SET status='suspended' WHERE id=$1",[restricted]);assert.equal((await app.inject({url:`/v1/entries?${query}`,headers})).statusCode,403);
+
+ // UX filters and summaries must agree across pages and retain account/classification scope.
+ const uxTitle=`UX ${suffix}`;
+ const party=await f.saveCatalog(ctx(),'parties',{name:uxTitle,document:'',email:'',phone:'',status:'active'});
+ const center=await f.saveCatalog(ctx(),'cost-centers',{name:uxTitle,status:'active'});
+ const label=await f.saveCatalog(ctx(),'labels',{name:uxTitle,status:'active'});
+ const uxEntries=[];
+ for(const amount of ['100','200','300'])uxEntries.push(await f.entry(ctx(),{...input(amount),title:uxTitle,party_id:String(party.id),label_ids:[String(label.id)],allocations:[{amount_minor:amount,category_id:String(category.id),cost_center_id:String(center.id)}]}));
+ const uxQuery={from:today(),to:today(),limit:1,q:uxTitle,group:'revenue' as const,party_id:String(party.id),category_id:String(category.id),cost_center_id:String(center.id),label_id:String(label.id)};
+ const firstPage=await f.entries(ctx(),uxQuery);assert.equal(firstPage.items.length,1);assert.ok(firstPage.next_cursor);assert.equal(firstPage.items[0]!.party_name,uxTitle);
+ const full=await f.entrySummary(ctx(),uxQuery);assert.equal(full.count,3);assert.equal(full.receivable_minor,'600');assert.equal(full.payable_minor,'0');
+ const secondPage=await f.entries(ctx(),{...uxQuery,cursor:firstPage.next_cursor!});assert.notEqual(secondPage.items[0]!.id,firstPage.items[0]!.id);
+ assert.deepEqual(await f.entrySummary(ctx(),{...uxQuery,cursor:firstPage.next_cursor!}),full);
+ assert.equal((await f.entrySummary(ctx(),{...uxQuery,group:'fixed'})).count,0);
+ assert.equal((await f.entrySummary(ctx(),{...uxQuery,focus:'today'})).count,3);
+ assert.equal((await f.entrySummary(ctx(),{...uxQuery,focus:'overdue'})).count,0);
+ await f.mutateEntry(ctx(1),String(uxEntries[0]!.id),'cancel',{reason:'Encerrar teste UX'});
+ assert.equal((await f.entrySummary(ctx(),uxQuery)).receivable_minor,'500');
+ const uxSettled=await f.mutateEntry(ctx(1),String(uxEntries[1]!.id),'settle',{settled_on:today()});
+ const realized=await f.entrySummary(ctx(),uxQuery);assert.equal(realized.received_minor,'200');assert.equal(realized.receivable_minor,'300');
+ await f.mutateEntry(ctx(Number(uxSettled.version)),String(uxEntries[1]!.id),'reverse',{effective_on:today(),reason:'Encerrar teste UX'});
+ await admin.query("UPDATE app.users SET status='active' WHERE id=$1",[restricted]);
+ const noScope=await app.inject({url:`/v1/entries/summary?${query}`,headers});assert.equal(noScope.statusCode,200);assert.equal(noScope.json().count,0);assert.equal(noScope.json().received_minor,'0');
+ assert.equal((await app.inject({url:`/v1/entries/summary?${query}&group=invalid`,headers:{authorization:`Bearer ${actor}`}})).statusCode,422);
+ assert.equal((await app.inject({url:`/v1/entries/summary?${query}`})).statusCode,401);
  // Deterministic pseudo-random sequence with independently recomputed invariants.
  let state=41021;const random=()=>{state=(state*1664525+1013904223)>>>0;return state;};let commands=0;
  for(let i=0;i<334;i++){

@@ -19,6 +19,14 @@ Contatos, centros de custo e marcadores são auxiliares. Você pode configurá-l
 
 ## Rotina de uso
 
+Na **Visão geral**, use **Ver receitas**, **Ver despesas**, **Vencem hoje** ou **Ver vencidos**. Os atalhos preservam empresa, conta e período; amplie o período para procurar pendências mais antigas.
+
+Em **Lançamentos**, escolha **Receitas** ou **Despesas**. Dentro de despesas, os botões de grupo ajudam a localizar custos fixos, variáveis, pessoas ou impostos. Use as setas para trocar de mês. **Mais filtros** reúne contato, categoria, centro de custo e marcador.
+
+Os totais acima da lista abrangem todas as páginas. São agrupados por vencimento; para conferir quando o dinheiro realmente entrou ou saiu, consulte o extrato. No celular, toque no título de um cartão para abrir os detalhes.
+
+No guia inicial, **O que já posso fazer?** informa quais recursos estão disponíveis e quais continuam planejados. A comparação completa com os prints está em `auditoria-ux-referencias.md`.
+
 - **Agenda:** compromissos pendentes por vencimento.
 - **Lançamentos:** receitas, despesas, pagamentos, recebimentos e suas correções.
 - **Visão geral:** totais e movimentos do período selecionado.

@@ -18,6 +18,7 @@ export async function financeRoutes(app:FastifyInstance,f:Finance,authenticate:(
  for(const key of Object.keys(catalogSchemas) as Catalog[]){app.get(`/v1/${key}`,async r=>({items:await f.catalog(await context(r),key)}));app.post(`/v1/${key}`,async r=>f.saveCatalog(await context(r),key,parse(catalogSchemas[key],r.body)));app.patch(`/v1/${key}/:id`,async r=>f.saveCatalog(await context(r),key,parse(catalogSchemas[key],r.body),rid(r)));}
  app.get('/v1/entries',async r=>f.entries(await context(r),parse(listSchema,r.query)));
  app.get('/v1/agenda',async r=>f.entries(await context(r),parse(listSchema,r.query),true));
+ app.get('/v1/entries/summary',async r=>f.entrySummary(await context(r),parse(listSchema,r.query)));
  app.get('/v1/entries/:id',async r=>f.detail(await context(r),rid(r)));
  app.post('/v1/entries',async r=>f.entry(await context(r),parse(entrySchema,r.body)));
  app.patch('/v1/entries/:id',async r=>f.entry(await context(r),parse(entrySchema,r.body),rid(r)));

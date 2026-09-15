@@ -1,0 +1,15 @@
+{
+  "baseURL": "https://black-finance-financeiro-test.vercel.app",
+  "transactionTabs": true,
+  "expenseGroups": true,
+  "serverTotals": true,
+  "searchRetainsFocus": true,
+  "emptyState": true,
+  "monthNavigation": true,
+  "advancedFilters": true,
+  "creationDirection": true,
+  "todayShortcut": true,
+  "productScope": true,
+  "mobileNoHorizontalOverflow": true,
+  "javascriptErrors": 0
+}

@@ -1,3 +1,4 @@
+import {ProductScope} from './ProductScope';
 import { ArrowRight, BookOpen, Building2, Wallet, ArrowLeftRight, CheckCircle2, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -21,5 +22,6 @@ export function GettingStarted({ navigate, can }: { navigate: (page: string) => 
       <AccordionItem value="routine"><AccordionTrigger>Qual tela eu uso no dia a dia?</AccordionTrigger><AccordionContent><p><strong>Agenda:</strong> confira compromissos pendentes e vencimentos. <strong>Lançamentos:</strong> registre receitas, despesas e pagamentos. <strong>Visão geral:</strong> acompanhe os totais. <strong>Extrato:</strong> confira o saldo e cada movimento da conta.</p><p>Use Transferências quando o dinheiro mudar entre suas próprias contas. Contatos, centros de custo e marcadores são cadastros auxiliares; podem ficar para depois.</p></AccordionContent></AccordionItem>
       <AccordionItem value="terms"><AccordionTrigger>O que significam os termos financeiros?</AccordionTrigger><AccordionContent><dl className="glossary"><div><dt>Pendente</dt><dd>Previsto, mas ainda não pago ou recebido.</dd></div><div><dt>Liquidar</dt><dd>Registrar que o pagamento ou recebimento aconteceu. Não envia dinheiro ao banco.</dd></div><div><dt>Vencimento</dt><dd>Data prevista para pagar ou receber.</dd></div><div><dt>Competência</dt><dd>Data à qual a receita ou despesa pertence, mesmo que o pagamento ocorra depois.</dd></div><div><dt>Reverter</dt><dd>Desfazer uma liquidação por meio de um movimento contrário, mantendo o histórico.</dd></div><div><dt>Rateio</dt><dd>Dividir o valor de um lançamento entre classificações.</dd></div></dl></AccordionContent></AccordionItem>
     </Accordion></CardContent></Card>
+    <ProductScope/>
   </div>;
 }
