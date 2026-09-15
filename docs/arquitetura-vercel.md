@@ -40,7 +40,7 @@ Alterações de política têm trava transacional para proteger o último propri
 
 Skill aplicada: Black Finance identidade visual. Logo original `LOGO CENTRAL VAZADO16.svg`, sem redesenho; Kumbh Sans Regular/Bold originais e licença OFL preservados. Paleta principal: #06231D, #104238, #ECEDEA, #E3EF26, #076653 e #8E9781. Branco das superfícies e cor de erro são adaptações funcionais do produto; não são novas cores oficiais da marca.
 
-Componentes oficiais shadcn/ui adicionados por CLI: Button, Card, Input, Label, Textarea, Badge, Table, Dialog, AlertDialog, Sheet, Separator e Skeleton. Seletores simples usam o elemento nativo por acessibilidade móvel. Raios, breakpoints, densidade e hierarquia da aplicação são escolhas do projeto. Semibold não foi apresentado como arquivo disponível: a interface utiliza os pesos originais 400 e 700, sem síntese de fonte.
+Componentes oficiais shadcn/ui adicionados por CLI: Button, Card, Input, Label, Textarea, Badge, Table, Dialog, AlertDialog, Sheet, Separator, Skeleton, Select, Checkbox, Alert, Accordion e Tooltip. Seletores e caixas de seleção são compartilhados por todas as telas. Datas usam Input com o seletor nativo do navegador. Raios, breakpoints, densidade e hierarquia da aplicação são escolhas do projeto. A interface utiliza os pesos originais 400 e 700, sem síntese de fonte. O guia Comece por aqui explica o fluxo principal e reúne um glossário; o menu separa rotina, cadastros e administração.
 
 ## Limites explícitos
 
