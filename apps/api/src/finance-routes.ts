@@ -1,3 +1,4 @@
+import {analysisRoutes} from './analysis-routes.js';
 import {googleRoutes} from './google-routes.js';
 import {evidenceRoutes} from './evidence-routes.js';
 import type {FastifyInstance,FastifyRequest} from 'fastify';
@@ -12,7 +13,7 @@ export function parse<T>(schema:z.ZodType<T>,input:unknown):T{const r=schema.saf
 export async function financeRoutes(app:FastifyInstance,f:Finance,authenticate:(r:FastifyRequest)=>Promise<string>){
  const context=async(req:FastifyRequest):Promise<Context>=>{const actor=await authenticate(req);const match=req.headers['x-entity-version']??req.headers['if-match'];if(req.headers['x-entity-version']!==undefined&&req.headers['if-match']!==undefined&&String(req.headers['x-entity-version'])!==String(req.headers['if-match']).replace(/^"|"$/g,''))throw new AppError(400,'INVALID_VERSION','Cabeçalhos de versão divergentes.');let version;if(match!==undefined){const value=String(match).replace(/^"|"$/g,'');if(!/^[1-9]\d{0,8}$/.test(value))throw new AppError(400,'INVALID_VERSION','Versão inválida.');version=Number(value);}const key=req.headers['idempotency-key'];return{actor,requestId:req.id,key:typeof key==='string'?key:undefined,version};};
  const rid=(req:FastifyRequest)=>parse(id,(req.params as {id:string}).id);
- await evidenceRoutes(app,f,context);await googleRoutes(app,f,context);
+ await evidenceRoutes(app,f,context);analysisRoutes(app,f,context);await googleRoutes(app,f,context);
  const modules=new InternalModules(f);
  for(const [path,table] of [['invoices','invoices'],['recurrences','recurrences'],['imports','import_batches']] as const)app.get(`/v1/${path}`,async r=>modules.list(await context(r),table,parse(listSchema,r.query)));
  app.post('/v1/invoices',async r=>modules.createInvoice(await context(r),parse(invoiceSchema,r.body)));

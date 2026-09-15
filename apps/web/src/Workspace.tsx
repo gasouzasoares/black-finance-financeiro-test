@@ -1,3 +1,4 @@
+import {ActivityPlanner} from '@/components/AnalysisCenter';
 import {Documents,Dimensions} from '@/components/EvidenceModules';
 import {ContextReview} from '@/components/ContextReview';
 import {Integrations,CalendarEvents,Accountability} from '@/components/IntegrationModules';
@@ -64,7 +65,7 @@ export function Workspace({api,user,logout}:{api:API;user:{display_name:string;e
 {page==='context'&&<Dimensions {...moduleProps}/>}
 {page==='integrations'&&<Integrations {...moduleProps}/>}
 {page==='accountability'&&<Accountability {...moduleProps}/>}
-{page==='agenda'&&can('integrations')&&<CalendarEvents {...moduleProps}/>}
+{page==='agenda'&&<>{can('integrations')&&<CalendarEvents {...moduleProps}/>} {can('context')&&<ActivityPlanner api={api} can={can}/>}</>}
 {page==='reports'&&can('context')&&<Button onClick={()=>navigate('accountability')}>Prestação de contas e evidências</Button>}
 {page==='invoices'&&<Invoices {...moduleProps}/>}
 {page==='imports'&&<Imports key={`csv:${account}:${company}`} {...moduleProps} ofx={false}/>}

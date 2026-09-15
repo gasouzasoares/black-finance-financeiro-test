@@ -1,0 +1,13 @@
+{
+  "baseURL": "https://black-finance-financeiro-test.vercel.app",
+  "verifiedAt": "2026-09-15",
+  "pdfPrefill": true,
+  "bankFirstAnalysis": true,
+  "noBalanceChangeBeforeApproval": true,
+  "atomicCreateSettleReconcile": true,
+  "accountantXlsx": true,
+  "chartPng": true,
+  "dreDesktopMobile": true,
+  "javascriptErrors": 0,
+  "syntheticSettlementReversedAndCancelled": true
+}

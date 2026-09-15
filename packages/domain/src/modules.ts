@@ -189,8 +189,9 @@ export class InternalModules {
 
  });}
 
- async reconcile(ctx:Context,batchId:string,rowId:string,entryId:string|null){return this.f.command(ctx,'reconciliation:update',{batchId,rowId,entryId},async t=>{
+ async reconcile(ctx:Context,batchId:string,rowId:string,entryId:string|null){return this.f.command(ctx,'reconciliation:update',{batchId,rowId,entryId},t=>this.reconcileTx(t,batchId,rowId,entryId),async t=>{await this.scoped(t,'import_batches',batchId);this.f.permit(t,'entries:view');const row=(await t.db.query('SELECT payload FROM app.import_rows WHERE batch_id=$1 AND id=$2',[batchId,rowId])).rows[0];if(!row||!this.f.allowedEntry(t,row.payload.direction,['unclassified']))fail('Movimento não encontrado.',404);if(entryId){const e=(await t.db.query('SELECT * FROM app.entries WHERE id=$1',[entryId])).rows[0];if(!e)fail('Transação não encontrada.',404);await this.f.checkEntry(t,e);}});}
 
+ async reconcileTx(t:Tx,batchId:string,rowId:string,entryId:string|null){this.f.permit(t,'reconciliation:update');
   const batch=await this.scoped(t,'import_batches',batchId,true);if(!['ofx','xlsx'].includes(batch.kind))fail('Use um extrato OFX ou XLSX.');
 
   const row=(await t.db.query('SELECT * FROM app.import_rows WHERE id=$1 AND batch_id=$2 FOR UPDATE',[rowId,batchId])).rows[0];if(!row)fail('Movimento não encontrado.',404);this.f.version(t,row);if(row.status!=='pending')fail('Movimento já revisado.',409);
@@ -211,8 +212,7 @@ export class InternalModules {
 
   const result=(await t.db.query('UPDATE app.import_rows SET status=$2,entry_id=$3,settlement_id=$4,version=version+1 WHERE id=$1 RETURNING *',[rowId,entryId?'matched':'ignored',entryId,settlement?.id??null])).rows[0];await this.finishBatch(t,batchId);await this.f.audit(t,'reconciliation',rowId,entryId?'match':'ignore',null,{entry_id:entryId});return result;
 
- },async t=>{await this.scoped(t,'import_batches',batchId);this.f.permit(t,'entries:view');const row=(await t.db.query('SELECT payload FROM app.import_rows WHERE batch_id=$1 AND id=$2',[batchId,rowId])).rows[0];if(!row||!this.f.allowedEntry(t,row.payload.direction,['unclassified']))fail('Movimento não encontrado.',404);if(entryId){const e=(await t.db.query('SELECT * FROM app.entries WHERE id=$1',[entryId])).rows[0];if(!e)fail('Transação não encontrada.',404);await this.f.checkEntry(t,e);}});}
-
+ }
  async dre(ctx:Context,q:ListQuery&{basis:'competence'|'cash'}){return this.f.transaction(ctx,async t=>{
 
   this.f.permit(t,'reports:view');const {sql,values}=this.f.entryFilter(t,{...q,category_id:undefined,cost_center_id:undefined,group:undefined,focus:undefined,status:undefined});

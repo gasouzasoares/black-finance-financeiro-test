@@ -1,5 +1,7 @@
 # Extratos, documentos e contexto da ONG
 
+A criação automática revisada a partir do extrato e a exportação XLSX para o contador estão descritas no [guia de automação](automacao-e-contador.md). Use **Analisar extrato e documentos** em Conciliações para preparar transações novas sem cadastrá-las previamente.
+
 ## Como usar
 
 1. Em **Conciliações**, escolha a conta e envie o XLSX. Selecione a planilha, o cabeçalho e as colunas. Ignore linhas de saldo e confira a revisão. O saldo permanece igual.
