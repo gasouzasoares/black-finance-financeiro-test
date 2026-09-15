@@ -11,7 +11,7 @@
   {"source":"/v1/:path*","destination":"/api/index"},
   {"source":"/health","destination":"/api/index"},
   {"source":"/live","destination":"/api/index"},
-  {"source":"/((?!assets/|brand/).*)","destination":"/index.html"}
+  {"source":"/((?!assets/|brand/|ocr/).*)","destination":"/index.html"}
  ],
  "headers":[{"source":"/(.*)","headers":[{"key":"X-Content-Type-Options","value":"nosniff"},{"key":"Referrer-Policy","value":"same-origin"},{"key":"X-Frame-Options","value":"DENY"}]}]
 }

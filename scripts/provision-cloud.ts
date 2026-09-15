@@ -25,7 +25,7 @@ try{
  GRANT SELECT ON app.users TO app_runtime;
  DO $$ BEGIN IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='anon') THEN CREATE ROLE anon NOLOGIN; END IF; IF NOT EXISTS(SELECT 1 FROM pg_roles WHERE rolname='authenticated') THEN CREATE ROLE authenticated NOLOGIN; END IF; END $$;
  REVOKE ALL ON SCHEMA app FROM PUBLIC,anon,authenticated;`;
- for(const [filename,sql] of [['neon_base',base],['20260915000100_financial_core.sql',await readFile('supabase/migrations/20260915000100_financial_core.sql','utf8')],['20260915000200_internal_modules.sql',await readFile('supabase/migrations/20260915000200_internal_modules.sql','utf8')]]){
+ for(const [filename,sql] of [['neon_base',base],['20260915000100_financial_core.sql',await readFile('supabase/migrations/20260915000100_financial_core.sql','utf8')],['20260915000200_internal_modules.sql',await readFile('supabase/migrations/20260915000200_internal_modules.sql','utf8')],['20260915000300_evidence.sql',await readFile('supabase/migrations/20260915000300_evidence.sql','utf8')],['20260915000400_evidence_review_indexes.sql',await readFile('supabase/migrations/20260915000400_evidence_review_indexes.sql','utf8')]]){
   const hash=createHash('sha256').update(sql!).digest('hex');const applied=(await admin.query('SELECT checksum FROM app.schema_migrations WHERE name=$1',[filename])).rows[0];if(applied){if(applied.checksum!==hash)throw new Error('Migration aplicada foi modificada.');continue;}await admin.query('BEGIN');try{await admin.query(sql!);await admin.query('INSERT INTO app.schema_migrations(name,checksum) VALUES($1,$2)',[filename,hash]);await admin.query('COMMIT');}catch(e){await admin.query('ROLLBACK');throw e;}
  }
  // Auth owns only its own tables; the financial runtime has no DDL or ledger update grants.

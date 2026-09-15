@@ -5,7 +5,7 @@ export const signedMoney = z.string().regex(/^-?(0|[1-9]\d{0,14})$/);
 export const day = z.iso.date().refine(d=>d>='1900-01-01' && d<='2200-12-31');
 export const groups = ['revenue','deductions','fixed','variable','people','taxes','unclassified'] as const;
 export const directions = ['income','expense'] as const;
-export const resources = ['entries','notifications','dashboard','reports','parties','categories','cost-centers','accounts','templates','users','imports','reconciliation','exports','organization','billing','fiscal','search','invoices','labels'] as const;
+export const resources = ['entries','notifications','dashboard','reports','parties','categories','cost-centers','accounts','templates','users','imports','reconciliation','exports','organization','billing','fiscal','search','invoices','labels','documents','context','integrations'] as const;
 export const actions = ['view','create','update','cancel','settle','reverse','transfer','balances','manage'] as const;
 export const permission = z.string().refine(s => resources.some(r=>actions.some(a=>s===`${r}:${a}`)));
 export const policySchema = z.object({is_owner:z.boolean().default(false),permissions:z.array(permission).max(171),legal_entity_ids:z.array(id).max(1000),account_ids:z.array(id).max(1000),directions:z.array(z.enum(directions)),groups:z.array(z.enum(groups))}).strict();

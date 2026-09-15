@@ -1,6 +1,0 @@
-# Supabase local é gerenciado pelo CLI oficial, em containers próprios.
-services:
-  api:
-    extra_hosts: [host.docker.internal:host-gateway]
-  worker:
-    extra_hosts: [host.docker.internal:host-gateway]

@@ -1,3 +1,5 @@
+import {mappedRows} from './xlsx.js';
+import type {SheetMapping} from '../../contracts/src/evidence.js';
 import {createHash} from 'node:crypto';
 
 import {Finance,type Context,type Tx} from './finance.js';
@@ -106,9 +108,10 @@ export class InternalModules {
 
  },async t=>{const r=await this.scoped(t,'recurrences',id);await this.f.allocationData(t,entrySchema.parse(r.template));if(action==='generate')this.f.permit(t,'entries:create');});}
 
- async preview(ctx:Context,d:{account_id:string;kind:'csv'|'ofx';filename:string;content:string}){
+ async previewXlsx(ctx:Context,d:SheetMapping){ const rows=await mappedRows(d);return this.preview(ctx,{account_id:d.account_id,kind:'xlsx',filename:d.filename,content:JSON.stringify({sheet:d.sheet,header:d.header,rows})},rows); }
+ async preview(ctx:Context,d:{account_id:string;kind:'csv'|'ofx'|'xlsx';filename:string;content:string},xlsxRows?:ImportedRow[]){
 
-  const parsed=d.kind==='ofx'?parseOfx(d.content):{bank_identity:null,rows:parseCsv(d.content)};
+  const parsed=d.kind==='ofx'?parseOfx(d.content):{bank_identity:null,rows:xlsxRows??parseCsv(d.content)};
 
   if(!parsed.rows.length)fail('Arquivo sem movimentos.');
 
@@ -188,7 +191,7 @@ export class InternalModules {
 
  async reconcile(ctx:Context,batchId:string,rowId:string,entryId:string|null){return this.f.command(ctx,'reconciliation:update',{batchId,rowId,entryId},async t=>{
 
-  const batch=await this.scoped(t,'import_batches',batchId,true);if(batch.kind!=='ofx')fail('Este arquivo não é OFX.');
+  const batch=await this.scoped(t,'import_batches',batchId,true);if(!['ofx','xlsx'].includes(batch.kind))fail('Use um extrato OFX ou XLSX.');
 
   const row=(await t.db.query('SELECT * FROM app.import_rows WHERE id=$1 AND batch_id=$2 FOR UPDATE',[rowId,batchId])).rows[0];if(!row)fail('Movimento não encontrado.',404);this.f.version(t,row);if(row.status!=='pending')fail('Movimento já revisado.',409);
 

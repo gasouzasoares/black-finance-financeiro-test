@@ -8,7 +8,7 @@
   },
   "packageManager": "pnpm@11.19.0",
   "scripts": {
-    "build": "tsc -p tsconfig.build.json && vite build --config apps/web/vite.config.ts",
+    "build": "tsx scripts/prepare-ocr.ts && tsc -p tsconfig.build.json && vite build --config apps/web/vite.config.ts",
     "typecheck": "tsc --noEmit && tsc -p apps/web/tsconfig.json --noEmit",
     "lint": "eslint .",
     "test": "tsx --test tests/unit/*.test.ts",
@@ -25,19 +25,24 @@
   "dependencies": {
     "@fastify/rate-limit": "^10.3.0",
     "@supabase/supabase-js": "^2.57.0",
+    "@tesseract.js-data/por": "^1.0.0",
     "@vercel/functions": "^3.9.7",
     "better-auth": "^1.7.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cn": "^0.3.0",
+    "exceljs": "^4.4.0",
     "fastify": "^5.6.0",
+    "fflate": "^0.8.3",
     "jose": "^6.1.0",
     "lucide-react": "^1.45.0",
+    "pdfjs-dist": "^6.3.289",
     "pg": "^8.16.3",
     "radix-ui": "^1.6.7",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "tailwind-merge": "^3.7.0",
+    "tesseract.js": "^7.0.0",
     "zod": "^4.1.0"
   },
   "devDependencies": {
