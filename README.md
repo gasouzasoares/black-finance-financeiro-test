@@ -1,5 +1,7 @@
 # Black Finance · Gestão financeira interna
 
+> Publicação parcial pelo conector: o arquivo `pnpm-lock.yaml` excedeu o limite técnico da revisão automática e as capturas em `docs/screenshots/` foram bloqueadas para revisão de dados. Esses arquivos permanecem no pacote local completo. Para reproduzir exatamente as dependências validadas, adicione o lockfile original antes de executar a instalação com `--frozen-lockfile`. O workflow está temporariamente limitado à execução manual até esse arquivo ser publicado.
+
 Aplicação de teste para uma organização com múltiplos CNPJs e contas internas. Sem multi-tenancy. Interface com identidade Black Finance e componentes oficiais do shadcn/ui.
 
 **Aplicação publicada:** https://black-finance-financeiro-test.vercel.app. A tela de acesso é pública; os dados financeiros exigem autenticação. A demonstração usa dados sintéticos.
