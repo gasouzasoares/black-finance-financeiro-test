@@ -57,15 +57,17 @@ export class DriveIntake {
    const current=await this.planTx(t,job.source_id),target=current.items.find(i=>i.file_id===job.file_id),approved=(job.plan.items as Record<string,unknown>[]).find(i=>i.file_id===job.file_id);
    if(!target||!approved||target.new_name!==job.new_name||target.review_key!==approved.review_key||target.checksum!==approved!.checksum||current.blockers.length)fail('A revisão mudou. Confira as pendências e gere outra prévia.',409);
    await this.within(token,file.folder_id,file.root_id);
-   const response=await this.google.request(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(file.external_id)}?supportsAllDrives=true&fields=${fields}`,{headers:{Authorization:`Bearer ${token}`},signal:AbortSignal.timeout(15000)});
+   const response=await this.google.request(`https://www.googleapis.com/drive/v2/files/${encodeURIComponent(file.external_id)}?supportsAllDrives=true&fields=id,title,mimeType,fileSize,md5Checksum,etag,parents(id),labels(trashed),capabilities(canRename)`,{headers:{Authorization:`Bearer ${token}`},signal:AbortSignal.timeout(15000)});
    if(!response.ok)fail('Arquivo indisponível no Drive. Confira seu acesso.',409);
-   const meta=await response.json() as Meta,etag=response.headers.get('etag');
+   // v2 exposes the file ETag; v3 metadata does not reliably return that header.
+   const raw=await response.json() as {id:string;title:string;mimeType:string;fileSize?:string;md5Checksum?:string;etag?:string;parents?:{id:string}[];labels?:{trashed?:boolean};capabilities?:{canRename?:boolean}};
+   const meta={id:raw.id,name:raw.title,mimeType:raw.mimeType,size:raw.fileSize,md5Checksum:raw.md5Checksum,parents:raw.parents?.map(p=>p.id),trashed:raw.labels?.trashed,capabilities:raw.capabilities},etag=raw.etag??response.headers.get('etag');
    if(meta.trashed||!meta.parents?.includes(file.folder_id)||(meta.md5Checksum??'')!==approved!.checksum||Number(meta.size)!==file.byte_size)fail('O arquivo foi alterado ou saiu da pasta. Busque os arquivos e revise novamente.',409);
    if(meta.name!==job.new_name){
     if(meta.name!==job.old_name)fail('Nome alterado no Drive após a aprovação. Gere outra prévia.',409);
     if(!meta.capabilities?.canRename)fail('Seu acesso ao Drive não permite renomear este arquivo.',403);
     if(!etag)fail('O Drive não forneceu controle de versão para renomear com segurança. O original foi preservado.',409);
-    const changed=await this.google.request(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(file.external_id)}?supportsAllDrives=true&fields=id,name`,{method:'PATCH',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json','If-Match':etag!},body:JSON.stringify({name:job.new_name}),signal:AbortSignal.timeout(15000)});
+    const changed=await this.google.request(`https://www.googleapis.com/drive/v2/files/${encodeURIComponent(file.external_id)}?supportsAllDrives=true&fields=id,title`,{method:'PATCH',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json','If-Match':etag!},body:JSON.stringify({title:job.new_name}),signal:AbortSignal.timeout(15000)});
     if(changed.status===412)fail('Outra pessoa alterou o arquivo. Gere uma nova prévia.',409);
     if(!changed.ok)fail('O Drive não aplicou o nome. Tente novamente.',503);
    }

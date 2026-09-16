@@ -30,7 +30,7 @@ O serviço valida o proprietário da conexão, permissões de produto, conta/CNP
 - `drive_intake_files`: identificação estável do Drive, assinatura MD5 fornecida pelo Google, versão, tamanho, situação e documento/extrato associado. A chave conexão + arquivo evita importação duplicada.
 - `documents.storage='drive'`: mantém o original externo, sem copiar seus bytes para o banco. A cópia de leitura não representa um backup do original.
 - `drive_closures`: registro imutável da prévia aprovada, hash e responsável.
-- `drive_rename_jobs`: nomes anterior/proposto, situação e falha por arquivo. A operação verifica novamente os dados revisados e o conteúdo antes de alterar o nome, usa ETag/If-Match e confirma o resultado no Drive. Se o provedor não disponibilizar controle de versão, falha sem renomear.
+- `drive_rename_jobs`: nomes anterior/proposto, situação e falha por arquivo. A operação verifica novamente os dados revisados e o conteúdo antes de alterar o nome, usa a API Drive v2 para ETag/If-Match (a v3 permanece na busca e leitura) e confirma o resultado no Drive. Se o provedor não disponibilizar controle de versão, falha sem renomear.
 
 Falhas depois de o Google aplicar o nome são recuperáveis: a tentativa seguinte reconhece o nome aprovado e conclui o registro sem uma segunda alteração. Arquivos cujo conteúdo mudou depois de importados exigem nova versão como outro arquivo; a evidência anterior não é sobrescrita. Alterações na classificação ou revisão podem exigir nova prévia. O histórico preserva a aprovação anterior.
 
@@ -45,5 +45,7 @@ A confirmação é **documental e por pasta/conta/mês**. Não bloqueia contabil
 ## Verificação
 
 Testes unitários cobrem escopos, nomes seguros e identificação de formatos. O teste de integração usa banco local real e respostas Google simuladas para validar: confinamento da pasta, repetição da busca/importação, leitura de PDF acima de 1,5 MB sem armazenar bytes no banco, conciliação com revisão, bloqueio antes da confirmação, falha após renomeação e retomada sem duplicação, arquivo alterado e falta de escopo.
+
+Uma consulta real e somente de leitura confirmou que a API v2 fornece o ETag necessário; a resposta v3 não o forneceu.
 
 A interface foi conferida em desktop e largura de 390 px com dados fictícios, incluindo prévia e habilitação do botão somente após marcar a confirmação. A leitura e renomeação na pasta real dependem da autorização ampliada da conta no Google e da escolha da conta bancária de cada pasta; testes simulados não substituem essa validação externa.
