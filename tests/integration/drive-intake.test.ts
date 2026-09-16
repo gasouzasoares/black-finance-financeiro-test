@@ -1,0 +1,47 @@
+import {test} from 'node:test';
+import assert from 'node:assert/strict';
+import {readFile} from 'node:fs/promises';
+import {randomUUID,createHash} from 'node:crypto';
+import pg from 'pg';
+import ExcelJS from 'exceljs';
+import {Finance,today,type Context} from '../../packages/domain/src/finance.js';
+import {createPool} from '../../packages/domain/src/db.js';
+import {DriveIntake,fullDriveScope} from '../../packages/domain/src/drive-intake.js';
+import {seal} from '../../packages/domain/src/google.js';
+import {Analysis} from '../../packages/domain/src/analysis.js';
+import {Evidence} from '../../packages/domain/src/evidence.js';
+import {extractedSchema,contextSchema,mappingSchema} from '../../packages/contracts/src/evidence.js';
+import {proposalDraftSchema} from '../../packages/contracts/src/analysis.js';
+
+test('Drive intake: scoped files, resumable import, reviewed closure, conditional rename and changed-file protection',async t=>{
+ const env=JSON.parse(await readFile('.local/test-env.json','utf8'));const target=new URL(env.adminDatabaseUrl);assert.ok(['localhost','127.0.0.1'].includes(target.hostname)&&target.port==='54322');
+ const admin=new pg.Pool({connectionString:env.adminDatabaseUrl}),pool=createPool(env.databaseUrl),f=new Finance(pool),e=new Evidence(f),analysis=new Analysis(f);const actor=randomUUID(),secret=process.env.BETTER_AUTH_SECRET;process.env.BETTER_AUTH_SECRET='local-drive-test-only';
+ t.after(async()=>{await admin.query('UPDATE app.access_policies SET is_owner=false WHERE user_id=$1',[actor]);if(secret)process.env.BETTER_AUTH_SECRET=secret;else delete process.env.BETTER_AUTH_SECRET;await pool.end();await admin.end();});
+ await admin.query('INSERT INTO auth.users(id,email) VALUES($1,$2)',[actor,actor+'@example.test']);await admin.query("INSERT INTO app.users(id,email,display_name) VALUES($1,$2,'Drive test')",[actor,actor+'@example.test']);await admin.query('INSERT INTO app.access_policies(user_id,is_owner) VALUES($1,true)',[actor]);
+ const ctx=(version?:number,key=randomUUID()):Context=>({actor,version,key,requestId:randomUUID()});
+ let cnpj=String(Date.now()).slice(-12);for(let round=0;round<2;round++){let sum=0;for(let i=cnpj.length-1,w=2;i>=0;i--,w=w===9?2:w+1)sum+=Number(cnpj[i])*w;cnpj+=String(sum%11<2?0:11-sum%11);}
+ const company=await f.entity(ctx(),{name:'Drive fixture',cnpj,status:'active'}),account=await f.createAccount(ctx(),{legal_entity_id:company.id,name:'Conta Drive teste',kind:'bank',opening_on:'2020-01-01',opening_minor:'0',is_default:false});
+ const root='root-fixture',folder='month-fixture',outside='outside-fixture',docId='note-fixture',xlsxId='xlsx-fixture';
+ const binary=Buffer.from('%PDF-1.4\n'+'.'.repeat(2177000)),checksum=createHash('md5').update(binary).digest('hex');
+ const book=new ExcelJS.Workbook(),sheet=book.addWorksheet('Extrato');sheet.addRow(['Data','Descrição','Valor']);sheet.addRow([today(),'Almoço institucional',-23.94]);const excel=Buffer.from(await book.xlsx.writeBuffer()),excelHash=createHash('md5').update(excel).digest('hex');
+ type M={id:string;name:string;mimeType:string;parents:string[];version:string;size?:string;md5Checksum?:string;capabilities?:{canRename:boolean}};
+ const metas:Record<string,M>={[root]:{id:root,name:'Ano',mimeType:'application/vnd.google-apps.folder',parents:[],version:'1'},[folder]:{id:folder,name:'Mês',mimeType:'application/vnd.google-apps.folder',parents:[root],version:'1'},[outside]:{id:outside,name:'Fora',mimeType:'application/vnd.google-apps.folder',parents:[],version:'1'},[docId]:{id:docId,name:'scan.pdf',mimeType:'application/pdf',parents:[folder],version:'1',size:String(binary.length),md5Checksum:checksum,capabilities:{canRename:true}},[xlsxId]:{id:xlsxId,name:'extrato.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',parents:[folder],version:'1',size:String(excel.length),md5Checksum:excelHash}};
+ let writes=0,failAfterWrite=true;
+ const request:typeof fetch=async(input,init)=>{const u=new URL(String(input));assert.equal(u.hostname,'www.googleapis.com');const id=u.pathname.split('/').at(-1)!;if(id==='files'){const q=u.searchParams.get('q')!;const parent=/^'([^']+)'/.exec(q)![1];return Response.json({files:Object.values(metas).filter(m=>m.parents.includes(parent!))});}const m=metas[id];if(!m)return new Response('',{status:404});if(init?.method==='PATCH'){assert.equal(new Headers(init.headers).get('If-Match'),'"'+m.version+'"');m.name=JSON.parse(String(init.body)).name;m.version=String(Number(m.version)+1);writes++;if(failAfterWrite){failAfterWrite=false;return new Response('',{status:503});}return Response.json({id,name:m.name});}if(u.searchParams.get('alt')==='media'){const range=/bytes=(\d+)-(\d+)/.exec(new Headers(init?.headers).get('Range')!)!,bytes=id===docId?binary:excel;return new Response(bytes.subarray(Number(range[1]),Number(range[2])+1),{status:206});}return Response.json(m,{headers:{etag:'"'+m.version+'"'}});};
+ const drive=new DriveIntake(f,request);await admin.query('INSERT INTO app.provider_connections(user_id,tokens) VALUES($1,$2)',[actor,seal({access_token:'fixture-only',scope:fullDriveScope,expires_at:Date.now()+3600000})]);
+ await drive.root(ctx(),root);const browse=await drive.browse(ctx());assert.equal(browse.items[0]?.id,folder);await assert.rejects(()=>drive.browse(ctx(),outside));
+ const source=await drive.bind(ctx(),{account_id:String(account.id),month:today().slice(0,7),folder_id:folder});assert.equal((await drive.bind(ctx(),{account_id:String(account.id),month:today().slice(0,7),folder_id:folder})).id,source.id);
+ await drive.scan(ctx(),String(source.id));await drive.scan(ctx(),String(source.id));const files=(await drive.files(ctx(),String(source.id))).items;assert.equal(files.length,2);const note=files.find(i=>i.external_id===docId)!,statement=files.find(i=>i.external_id===xlsxId)!;
+ const first=await drive.chunk(ctx(),note.id,0);assert.equal(Buffer.from(first.base64,'base64').length,750000);assert.equal(first.next,750000);assert.equal(writes,0);
+ const read={text:`Emitente: Restaurante fictício\nData: ${today().split('-').reverse().join('/')}\nValor total: R$ 23,94`,method:'pdf-text' as const,duration_ms:15,checksum};const doc=await drive.document(ctx(),note.id,read);assert.equal((await drive.document(ctx(),note.id,read)).id,doc.id);const stored=await f.transaction(ctx(),tx=>e.document(tx,String(doc.id),true));assert.equal(stored.storage,'drive');assert.equal(stored.original.length,0);assert.equal(stored.byte_size,binary.length);
+ const mapping=mappingSchema.parse({account_id:account.id,filename:'extrato.xlsx',base64:excel.toString('base64'),sheet:'Extrato',header:1,date:1,description:2,amount:3,debit:null,credit:null,identifier:null});const batch=await drive.statement(ctx(),statement.id,mapping);assert.equal((await drive.statement(ctx(),statement.id,mapping)).id,batch.id);
+ const initial=await drive.plan(ctx(),String(source.id));assert.ok(initial.blockers.length);await assert.rejects(()=>drive.approve(ctx(),String(source.id),initial.hash));assert.equal(writes,0);
+ await e.reviewDocument(ctx(1),String(doc.id),{fields:extractedSchema.parse(stored.fields),status:'confirmed',reason:'Conferido no original'});
+ const row=(await analysis.modules.batch(ctx(),String(batch.id))).rows[0];const proposal=await analysis.analyze(ctx(),String(batch.id),row.id);const parsed=proposalDraftSchema.parse(proposal.draft);assert.equal(parsed.document_ids[0],doc.id);const approved=await analysis.approve(ctx(Number(proposal.version)),String(batch.id),String(proposal.id),'Conferência bancária');
+ const context=await e.context(ctx(),String(approved.entry_id));await e.saveContext(ctx(Number(context.version)),String(approved.entry_id),contextSchema.parse({document_ids:[doc.id],movement_ids:[row.id],event_ids:[],dimension_ids:[],party_ids:[],justification:'Almoço institucional',documentation_complete:true,status:'confirmed',reason:'Revisão documental'}));
+ const plan=await drive.plan(ctx(),String(source.id));assert.deepEqual(plan.blockers,[]);assert.equal(plan.items.length,1);const closure=await drive.approve(ctx(),String(source.id),plan.hash);assert.equal(writes,0);const job=(await drive.jobs(ctx(),String(source.id))).items.find(j=>j.closure_id===closure.id)!;
+ await assert.rejects(()=>drive.rename(ctx(),job.id));assert.equal(writes,1);assert.equal((await drive.jobs(ctx(),String(source.id))).items[0].status,'error');
+ assert.equal((await drive.rename(ctx(),job.id)).status,'done');assert.equal(writes,1);await drive.rename(ctx(),job.id);assert.equal(writes,1);assert.match(metas[docId]!.name,/23,94/);
+ metas[docId]!.md5Checksum='a'.repeat(32);await drive.scan(ctx(),String(source.id));assert.equal((await drive.files(ctx(),String(source.id))).items.find(i=>i.id===note.id)?.status,'changed');assert.ok((await drive.plan(ctx(),String(source.id))).blockers.length);await assert.rejects(()=>drive.document(ctx(),note.id,read));assert.equal(writes,1);
+ await admin.query('UPDATE app.provider_connections SET tokens=$2 WHERE user_id=$1',[actor,seal({access_token:'fixture-only',scope:'https://www.googleapis.com/auth/drive.file',expires_at:Date.now()+3600000})]);await assert.rejects(()=>drive.browse(ctx()));
+});

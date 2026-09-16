@@ -1,5 +1,6 @@
 import {Contacts,contactContextSchema} from '../../../packages/domain/src/contacts.js';
 import {z} from 'zod';
+import {AppError} from '../../../packages/contracts/src/index.js';
 import type {FastifyInstance,FastifyRequest} from 'fastify';
 import {id} from '../../../packages/contracts/src/finance.js';
 import {sheetSchema,mappingSchema,documentSchema,documentReviewSchema,dimensionSchema,contextSchema,accountabilitySchema} from '../../../packages/contracts/src/evidence.js';
@@ -19,9 +20,9 @@ export async function evidenceRoutes(app:FastifyInstance,f:Finance,context:(r:Fa
  app.post('/v1/documents',async r=>service.upload(await context(r),parse(documentSchema,r.body)));
  app.get('/v1/documents/:id',async r=>f.transaction(await context(r),t=>service.document(t,rid(r))));
  app.get('/v1/documents/:id/copies',async r=>f.transaction(await context(r),async t=>{await service.document(t,rid(r));if(!t.policy.is_owner&&!t.policy.permissions.includes('integrations:view'))return {items:[]};return {items:(await t.db.query("SELECT dc.url,dc.status,dc.checked_at FROM app.document_copies dc JOIN app.provider_connections c ON c.id=dc.connection_id WHERE dc.document_id=$1 AND c.user_id=$2 AND c.status='connected'",[rid(r),t.ctx.actor])).rows};}));
- app.get('/v1/documents/:id/file',async r=>{const d=await f.transaction(await context(r),t=>service.document(t,rid(r),true));return {mime:d.mime,base64:d.original.toString('base64')};});
+ app.get('/v1/documents/:id/file',async r=>{const d=await f.transaction(await context(r),t=>service.document(t,rid(r),true));if(d.storage==='drive'){const ctx=await context(r);return f.transaction(ctx,async t=>{f.permit(t,'integrations:view');const file=(await t.db.query("SELECT df.id FROM app.drive_intake_files df JOIN app.provider_connections c ON c.id=df.connection_id WHERE df.document_id=$1 AND c.user_id=$2 AND c.status='connected' LIMIT 1",[d.id,ctx.actor])).rows[0];if(!file)throw new AppError(409,'DRIVE_CONNECTION','Conecte a conta Google que importou este documento para consultar o original.');return {mime:d.mime,drive_file_id:file.id};});}return {mime:d.mime,base64:d.original.toString('base64')};});
  app.patch('/v1/documents/:id',async r=>service.reviewDocument(await context(r),rid(r),parse(documentReviewSchema,r.body)));
- app.get('/v1/documents/:id/original',async(r,reply)=>{const d=await f.transaction(await context(r),t=>service.document(t,rid(r),true));return reply.header('Content-Type',d.mime).header('X-Content-Type-Options','nosniff').header('Content-Security-Policy',"default-src 'none'; sandbox").header('Content-Disposition',`inline; filename*=UTF-8''${encodeURIComponent(d.filename)}`).send(d.original);});
+ app.get('/v1/documents/:id/original',async(r,reply)=>{const d=await f.transaction(await context(r),t=>service.document(t,rid(r),true));if(d.storage==='drive')throw new AppError(409,'DRIVE_DOCUMENT','Abra o original pelo link do Drive na revisão do documento.');return reply.header('Content-Type',d.mime).header('X-Content-Type-Options','nosniff').header('Content-Security-Policy',"default-src 'none'; sandbox").header('Content-Disposition',`inline; filename*=UTF-8''${encodeURIComponent(d.filename)}`).send(d.original);});
  app.get('/v1/context/dimensions',async r=>service.dimensions(await context(r)));
  app.post('/v1/context/dimensions',async r=>service.saveDimension(await context(r),parse(dimensionSchema,r.body)));
  app.patch('/v1/context/dimensions/:id',async r=>service.saveDimension(await context(r),parse(dimensionSchema,r.body),rid(r)));

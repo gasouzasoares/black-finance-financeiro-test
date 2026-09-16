@@ -147,6 +147,7 @@ export class InternalModules {
 
  }
 
+ async batchTxForDrive(t:Tx,id:string){this.f.permit(t,'imports:view');await this.scoped(t,'import_batches',id);const rows=(await t.db.query('SELECT r.*,EXISTS(SELECT 1 FROM app.settlements s WHERE s.reversal_of=r.settlement_id) AS reversed FROM app.import_rows r WHERE batch_id=$1 ORDER BY id',[id])).rows;return {id,pending:rows.filter(r=>['pending','invalid'].includes(r.status)||r.reversed).length,rows:rows.map(r=>[r.id,r.version,r.status,r.reversed])};}
  async batch(ctx:Context,id:string){return this.f.transaction(ctx,async t=>{this.f.permit(t,'imports:view');const batch=await this.scoped(t,'import_batches',id);return {...batch,rows:(await t.db.query(`SELECT r.*,EXISTS(SELECT 1 FROM app.settlements s WHERE s.reversal_of=r.settlement_id) AS match_reversed FROM app.import_rows r WHERE batch_id=$1 ORDER BY line`,[id])).rows.filter(r=>this.f.allowedEntry(t,r.payload.direction,['unclassified']))};});}
 
  async importRows(ctx:Context,id:string,ids:string[]){return this.f.command(ctx,'imports:update',{id,ids},async t=>{
